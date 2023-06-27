@@ -28,29 +28,14 @@ impl<'a> Parser<'a> {
         let constant_pool = ConstantPool::new(constant_pool);
 
         let access_flags = self.next_u16();
-        let this_class = self.next_u16();
-        let Constant::Class(this_class) = constant_pool.get(this_class).unwrap() else {
-            panic!("this_class not a classinfo");
-        };
-        let Constant::Utf8(this_class) = constant_pool.get(this_class.name_index).unwrap() else {
-            panic!();
-        };
-        let super_class = self.next_u16();
-        let Constant::Class(super_class) = constant_pool.get(super_class).unwrap() else {
-            panic!("super_class not a classinfo");
-        };
-        let Constant::Utf8(super_class) = constant_pool.get(super_class.name_index).unwrap() else {
-            panic!();
-        };
+        let this_class = constant_pool.get_class(self.next_u16());
+        let super_class = constant_pool.get_class(self.next_u16());
 
         let interfaces_count = self.next_u16();
         let interfaces = self
             .parse_sized_table(interfaces_count, Self::next_u16)
             .into_iter()
-            .map(|x| match constant_pool.get(x) {
-                Some(Constant::Utf8(s)) => unsafe { mem::transmute::<&'_ str, &'static str>(s) },
-                _ => panic!(),
-            })
+            .map(|x| unsafe { mem::transmute::<&'_ str, &'static str>(constant_pool.get_utf8(x)) })
             .collect();
 
         let fields_count = self.next_u16();
@@ -120,6 +105,7 @@ impl<'a> Parser<'a> {
             7 => Class(self.parse_class_constant()),
             9 => Fieldref(self.parse_fieldref_constant()),
             10 => Methodref(self.parse_methodref_constant()),
+            11 => InterfaceMethodref(self.parse_methodref_constant()),
             12 => NameAndType(self.parse_name_and_type_constant()),
             1 => Utf8(self.parse_utf8_constant()),
             3 => {
@@ -201,17 +187,8 @@ impl<'a> Parser<'a> {
 
     fn parse_field_info(&mut self, cp: &ConstantPool) -> FieldInfo<'static> {
         let access_flags = self.next_u16();
-
-        let name_index = self.next_u16();
-        let Constant::Utf8(name_string) = cp.get(name_index).unwrap() else {
-            panic!("Invalid class file: expected name_index to point to a string");
-        };
-
-        let descriptor_index = self.next_u16();
-        let Constant::Utf8(descriptor_string) = cp.get(descriptor_index).unwrap() else {
-            panic!("Invalid class file: expected descriptor_index to point to a string");
-        };
-
+        let name_string = cp.get_utf8(self.next_u16());
+        let descriptor_string = cp.get_utf8(self.next_u16());
         let attribute_count = self.next_u16();
         let attributes = self.parse_sized_table(attribute_count, |p| p.parse_attribute(cp));
 
@@ -229,16 +206,9 @@ impl<'a> Parser<'a> {
 
     fn parse_method_info(&mut self, cp: &ConstantPool) -> MethodInfo<'static> {
         let access_flags = self.next_u16();
-        let name_index = self.next_u16();
-        let Constant::Utf8(name_string) = cp.get(name_index).unwrap() else {
-            panic!("name wasn't a utf8");
-        };
-        let descriptor_index = self.next_u16();
-        let Constant::Utf8(descriptor_string) = cp.get(descriptor_index).unwrap() else {
-            panic!("descriptor wasn't a utf8");
-        };
+        let name_string = cp.get_utf8(self.next_u16());
+        let descriptor_string = cp.get_utf8(self.next_u16());
         let descriptor = crate::descriptor::parse_method_descriptor(descriptor_string);
-
         let attributes_count = self.next_u16();
         let attributes = self.parse_sized_table(attributes_count, |p| p.parse_attribute(cp));
 
@@ -255,22 +225,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_attribute(&mut self, cp: &ConstantPool) -> Attribute<'static> {
-        let attribute_name_index = self.next_u16();
+        let attribute_name = cp.get_utf8(self.next_u16());
         let attribute_length = self.next_u32() as usize;
         let len_before_attribute = self.raw.len();
 
-        let Constant::Utf8(attribute_name) = cp.get(attribute_name_index).unwrap() else {
-            panic!("Attribute name wasn't a utf8constant");
-        };
-
-        let attribute = match attribute_name.as_ref() {
-            "SourceFile" => {
-                let sourcefile_index = self.next_u16();
-                let Constant::Utf8(sourcefile_string) = cp.get(sourcefile_index).unwrap() else {
-                    panic!("sourcefile wasn't a utf8constant");
-                };
-                Attribute::SourceFile(sourcefile_string)
-            }
+        let attribute = match attribute_name {
+            "SourceFile" => Attribute::SourceFile(cp.get_utf8(self.next_u16())),
             "LineNumberTable" => {
                 let len = self.next_u16();
                 let entries = self.parse_sized_table(len, |p| {
@@ -296,11 +256,7 @@ impl<'a> Parser<'a> {
                     ConstantValueKind::Long(x) => ConstantValueAttribute::Long(*x),
                     ConstantValueKind::Double(x) => ConstantValueAttribute::Double(*x),
                     ConstantValueKind::String(string_idx) => {
-                        let Constant::Utf8(s) = cp.get(*string_idx).unwrap() else {
-                            panic!("String ConstantValue was not a string");
-                        };
-
-                        ConstantValueAttribute::String(&s)
+                        ConstantValueAttribute::String(cp.get_utf8(*string_idx))
                     }
                 };
 

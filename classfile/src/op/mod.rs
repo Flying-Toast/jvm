@@ -1,6 +1,6 @@
 mod parser;
 
-use crate::ConstantPool;
+use crate::{ConstantPool, FieldRef, MethodRef};
 
 /// A VM instruction, with the opcode and all its operands.
 /// <https://docs.oracle.com/javase/specs/jvms/se20/html/jvms-6.html#jvms-6.5>
@@ -18,7 +18,7 @@ pub enum Op<'cp> {
     Iload1,
     Iload2,
     Iload3,
-    Invokespecial(u16),
+    Invokespecial(MethodRef<'cp>),
     Return,
     Ireturn,
     Bipush(u8),
@@ -36,9 +36,9 @@ pub enum Op<'cp> {
     Iadd,
     New(&'cp str),
     Dup,
-    Putfield(u16),
-    Getfield(u16),
-    Invokevirtual(u16),
+    Putfield(FieldRef<'cp>),
+    Getfield(FieldRef<'cp>),
+    Invokevirtual(MethodRef<'cp>),
 }
 
 /// Parses a series of instructions out of the code given by `raw`.

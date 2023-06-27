@@ -31,9 +31,14 @@ impl<'a> Parser<'a> {
                 0x1c => Iload2,
                 0x1d => Iload3,
                 0xb7 => {
-                    let index1: u16 = self.next_u8().into();
-                    let index2: u16 = self.next_u8().into();
-                    Invokespecial(index1 << 8 | index2)
+                    let methodref_index = self.next_be_u16();
+                    let r = match self.cp.get(methodref_index).unwrap() {
+                        Constant::InterfaceMethodref(x) => self.cp.get_methodref(*x, true),
+                        Constant::Methodref(x) => self.cp.get_methodref(*x, false),
+                        _ => panic!("expected [interface]methodref"),
+                    };
+
+                    Invokespecial(r)
                 }
                 0xb1 => Return,
                 0x10 => Bipush(self.next_u8()),
@@ -50,28 +55,17 @@ impl<'a> Parser<'a> {
                 0x8 => Iconst5,
                 0x60 => Iadd,
                 0xbb => {
-                    let index1: u16 = self.next_u8().into();
-                    let index2: u16 = self.next_u8().into();
-                    let idx = index1 << 8 | index2;
-                    let Constant::Class(ClassConstant { name_index }) = self.cp.get(idx).unwrap() else {
-                        panic!("expected classconst");
-                    };
-                    let Constant::Utf8(s) = self.cp.get(*name_index).unwrap() else {
-                        panic!("expected utf8");
-                    };
-
-                    New(s)
+                    let idx = self.next_be_u16();
+                    New(self.cp.get_class(idx))
                 }
                 0x59 => Dup,
                 0xb5 => {
-                    let index1: u16 = self.next_u8().into();
-                    let index2: u16 = self.next_u8().into();
-                    Putfield(index1 << 8 | index2)
+                    let idx = self.next_be_u16();
+                    Putfield(self.cp.get_fieldref(idx))
                 }
                 0xb4 => {
-                    let index1: u16 = self.next_u8().into();
-                    let index2: u16 = self.next_u8().into();
-                    Getfield(index1 << 8 | index2)
+                    let idx = self.next_be_u16();
+                    Getfield(self.cp.get_fieldref(idx))
                 }
                 0xac => Ireturn,
                 0x4b => Astore0,
@@ -79,21 +73,31 @@ impl<'a> Parser<'a> {
                 0x4d => Astore2,
                 0x4e => Astore3,
                 0xb6 => {
-                    let index1: u16 = self.next_u8().into();
-                    let index2: u16 = self.next_u8().into();
-                    Invokevirtual(index1 << 8 | index2)
+                    let idx = self.next_be_u16();
+                    let r = match self.cp.get(idx).unwrap() {
+                        Constant::Methodref(x) => self.cp.get_methodref(*x, false),
+                        _ => panic!("expected methodref"),
+                    };
+
+                    Invokevirtual(r)
                 }
                 x => panic!("Unknown opcode 0x{x:X}"),
             };
-            ops.push(op);
+            ops.push(unsafe { std::mem::transmute::<Op<'_>, Op<'static>>(op) });
         }
 
-        unsafe { std::mem::transmute::<Vec<Op<'_>>, Vec<Op<'static>>>(ops) }
+        ops
     }
 
     fn next_u8(&mut self) -> u8 {
         let it = self.raw[0];
         self.raw = &self.raw[1..];
         it
+    }
+
+    fn next_be_u16(&mut self) -> u16 {
+        let index1: u16 = self.next_u8().into();
+        let index2: u16 = self.next_u8().into();
+        index1 << 8 | index2
     }
 }

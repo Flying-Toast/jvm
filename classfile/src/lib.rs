@@ -95,6 +95,22 @@ pub struct MethodInfo<'cp> {
     pub attributes: Vec<Attribute<'cp>>,
 }
 
+#[derive(Debug)]
+pub struct FieldRef<'cp> {
+    pub class: &'cp str,
+    pub name: &'cp str,
+    pub descriptor: FieldDescriptor<'cp>,
+}
+
+#[derive(Debug)]
+pub struct MethodRef<'cp> {
+    /// if `false`: this is a class method. If `true`: this is an interface method.
+    pub is_interface: bool,
+    pub class: &'cp str,
+    pub name: &'cp str,
+    pub descriptor: MethodDescriptor<'cp>,
+}
+
 /// A bitflag to check against `AccessFlags`.
 /// <https://docs.oracle.com/javase/specs/jvms/se20/html/jvms-4.html#jvms-4.1-200-E.1>
 #[derive(Debug, Copy, Clone)]
