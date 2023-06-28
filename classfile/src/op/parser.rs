@@ -41,7 +41,7 @@ impl<'a> Parser<'a> {
                     Invokespecial(r)
                 }
                 0xb1 => Return,
-                0x10 => Bipush(self.next_u8()),
+                0x10 => Bipush(self.next_i8()),
                 0x3b => Istore0,
                 0x3c => Istore1,
                 0x3d => Istore2,
@@ -87,6 +87,10 @@ impl<'a> Parser<'a> {
         }
 
         ops
+    }
+
+    fn next_i8(&mut self) -> i8 {
+        unsafe { std::mem::transmute::<u8, i8>(self.next_u8()) }
     }
 
     fn next_u8(&mut self) -> u8 {

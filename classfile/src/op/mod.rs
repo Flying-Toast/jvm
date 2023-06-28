@@ -21,7 +21,7 @@ pub enum Op<'cp> {
     Invokespecial(MethodRef<'cp>),
     Return,
     Ireturn,
-    Bipush(u8),
+    Bipush(i8),
     Istore0,
     Istore1,
     Istore2,

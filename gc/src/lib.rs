@@ -12,6 +12,17 @@ pub struct Heap {
     droppers: HashMap<*const (), Box<dyn Fn()>>,
 }
 
+impl std::fmt::Debug for Heap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut set = f.debug_set();
+        for x in self.all.iter().cloned() {
+            set.entry(&(x as usize));
+        }
+
+        set.finish()
+    }
+}
+
 impl Heap {
     pub fn new() -> Self {
         Default::default()

@@ -1,5 +1,6 @@
 use classfile::ClassFile;
 use std::io::Read;
+use vm::Vm;
 
 fn main() {
     let mut data = Vec::new();
@@ -14,5 +15,8 @@ fn main() {
     .unwrap();
 
     let fooclass = ClassFile::parse_from_bytes(&data);
-    println!("{fooclass:#?}");
+
+    let mut vm = Vm::from_init_class(fooclass);
+
+    println!("{vm:#?}");
 }

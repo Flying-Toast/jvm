@@ -23,6 +23,14 @@ unsafe impl<T: Trace> Trace for Option<T> {
     }
 }
 
+unsafe impl<T: Trace> Trace for Vec<T> {
+    fn trace(&self, m: &mut Marker) {
+        for x in self {
+            x.trace(m);
+        }
+    }
+}
+
 UNSAFE_noop_trace_impl!(
     i8,
     u8,

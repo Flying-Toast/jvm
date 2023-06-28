@@ -210,10 +210,21 @@ impl<'a> Parser<'a> {
         let descriptor_string = cp.get_utf8(self.next_u16());
         let descriptor = crate::descriptor::parse_method_descriptor(descriptor_string);
         let attributes_count = self.next_u16();
-        let attributes = self.parse_sized_table(attributes_count, |p| p.parse_attribute(cp));
+        let mut attributes = self.parse_sized_table(attributes_count, |p| p.parse_attribute(cp));
+
+        let mut code = None;
+        for i in 0..attributes.len() {
+            if let Attribute::Code(_) = attributes[i] {
+                code = Some(match attributes.remove(i) {
+                    Attribute::Code(x) => x,
+                    _ => unreachable!(),
+                });
+            }
+        }
 
         unsafe {
             MethodInfo {
+                code,
                 access_flags: AccessFlags::new(access_flags),
                 name: mem::transmute::<&'_ str, &'static str>(name_string),
                 descriptor: mem::transmute::<MethodDescriptor<'_>, MethodDescriptor<'static>>(

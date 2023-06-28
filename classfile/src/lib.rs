@@ -92,7 +92,8 @@ pub struct MethodInfo<'cp> {
     pub access_flags: AccessFlags,
     pub name: &'cp str,
     pub descriptor: MethodDescriptor<'cp>,
-    pub attributes: Vec<Attribute<'cp>>,
+    pub code: Option<CodeAttribute<'cp>>,
+    attributes: Vec<Attribute<'cp>>,
 }
 
 #[derive(Debug)]
