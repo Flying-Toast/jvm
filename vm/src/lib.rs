@@ -1,5 +1,7 @@
 use classfile::*;
 use gc::*;
+use std::collections::HashMap;
+use std::mem;
 
 #[derive(Debug)]
 enum Value {
@@ -42,7 +44,7 @@ impl Frame {
 
 #[derive(Debug)]
 pub struct Vm {
-    main_class: ClassFile,
+    classes: HashMap<&'static str, ClassFile>,
     heap: Heap,
     frame_stack: Vec<Frame>,
 }
@@ -52,18 +54,24 @@ impl Vm {
         let mut it = Self {
             heap: Heap::new(),
             frame_stack: Vec::new(),
-            main_class,
+            classes: HashMap::new(),
         };
 
-        let main_method = it
-            .main_class
+        it.classes.insert(
+            unsafe { mem::transmute::<&'_ str, &'static str>(main_class.this_class()) },
+            main_class,
+        );
+
+        let main_class = it.classes.iter().next().map(|(_, v)| v).unwrap();
+
+        let main_method = main_class
             .methods()
             .iter()
             .find(|x| x.name == "<init>")
             .expect("main_class doesn't have <init>");
 
         it.frame_stack
-            .push(Frame::from_method(it.main_class.this_class(), main_method));
+            .push(Frame::from_method(main_class.this_class(), main_method));
 
         it
     }
